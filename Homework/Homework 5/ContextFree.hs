@@ -160,16 +160,17 @@ allPaths (Leaf c s) = [[c]]
 allPaths (Unary c sd) = map (\x -> c : x)(allPaths sd)
 allPaths (Binary c sd1 sd2) = (map (\x -> c : x)(allPaths sd1)) ++ (map (\n -> c : n)(allPaths sd2))
 
+--was going to be used to return the position of a NP in addressesOfNPs
 returnPosition :: StrucDesc -> Address
 returnPosition = undefined
 
 addressesOfNPs :: StrucDesc -> [Address]
---addressesOfNPs = undefined
+addressesOfNPs (Leaf c s) = if c == NP then [[]] else []
+addressesOfNPs (Unary c sd) = if c == NP then [[]] else (map (\x -> 0:x)(addressesOfNPs sd))
+addressesOfNPs (Binary c sd1 sd2) = if c == NP then ([[]] ++ (map (\x -> 0:x)(addressesOfNPs sd1) ++ (map (\x -> 1:x)(addressesOfNPs sd2)))) else (map (\x -> 0:x)(addressesOfNPs sd1) ++ (map (\x -> 1:x)(addressesOfNPs sd2)))
+
 --addressesOfNPs (Binary c sd1 sd2) = if c == NP then ([[1]] ++ addressesOfNPs sd1) ++ ([[1]] ++ addressesOfNPs sd2) else (addressesOfNPs sd1) ++ (addressesOfNPs sd2)
 --addressesOfNPs (Leaf c s) = if c == NP then [[0]] else []
-addressesOfNPs (Leaf c s) = if c == NP then [[]] else []
-addressesOfNPs (Unary c sd) = if c == NP then [[]] else (map (\x -> 0 : x)(addressesOfNPs sd))
-addressesOfNPs (Binary c sd1 sd2) = if c == NP then ([[]] ++ (map (\x -> 0 : x)(addressesOfNPs sd1) ++ (map (\x -> 1 : x)(addressesOfNPs sd2)))) else (map (\x -> 0 : x)(addressesOfNPs sd1) ++ (map (\x -> 1 : x)(addressesOfNPs sd2)))
 
 ccommand :: Address -> Address -> Bool
 ccommand (n:[]) (x:xs) =  case n of
@@ -194,6 +195,7 @@ replace (Unary c sd) (n:ns) newPart = case n of
     _ -> undefined
 replace (Leaf c s) (n:ns) newPart = Leaf c s  
 
+--returns the target leaf with the given sd and address
 returnLeaf :: StrucDesc -> Address -> StrucDesc
 returnLeaf sd [] = sd
 returnLeaf (Binary c sd1 sd2) (n:ns) = case n of
@@ -206,21 +208,62 @@ returnLeaf (Unary c sd) (n:ns) = case n of
     _ -> undefined
 returnLeaf (Leaf c s) (n:ns) = Leaf c s 
 
-move :: Address -> StrucDesc -> StrucDesc
-move (n:ns) (Binary c sd1 sd2) = case c of 
-    S -> let sd = Binary c sd1 sd2 in Binary S (returnLeaf (sd) (n:ns)) (move (n:ns) (sd2))
-    _ -> case n of 
-                0 -> Binary c sd1 (move ns sd1)
-                1 -> Binary c sd2 (move ns sd2)
-                _ -> undefined
+--originally used to count number of Binary S, but abandoned 
+countOfS :: StrucDesc -> Int
+countOfS (Leaf c s) = 0
+countOfS (Unary c sd) =  0 + (countOfS sd)
+countOfS (Binary c sd1 sd2) = case c of 
+    S -> 1 + (countOfS sd1) + (countOfS sd2)
+    _ -> 0 + (countOfS sd1) + (countOfS sd2)
 
---move (n:ns) (Binary c sd1 sd2) = case n of
---    0 -> move ns sd1
---    1 -> move ns sd2
---    _ -> undefined
+--converts the target constituent to a trace
+convertToTrace :: StrucDesc -> StrucDesc
+convertToTrace (Leaf c s) = Leaf c "t"
+convertToTrace (Unary c sd) = Leaf c "t"
+convertToTrace (Binary c sd1 sd2) = Leaf c "t"
+
+
+--[S John [S [NP the dog] [VP thinks [S t [VP left Mary]]]]]
+
+move :: Address -> StrucDesc -> StrucDesc
+move (n:ns) (Binary c sd1 sd2) = case ns of 
+    _ -> case c of 
+            S -> case ns of
+                    [] -> case n of 
+                            0 -> Binary c (convertToTrace sd1) sd2
+                            1 -> Binary c sd1 (convertToTrace sd2)
+                            _ -> undefined
+                    _ -> let sd = Binary c sd1 sd2 in Binary S (returnLeaf (sd)(n:ns)) (Binary S (move (ns)(sd1))(move (ns)(sd2)))
+            --VP -> case ns of 
+                    --[] -> Binary VP sd1 (convertToTrace sd2)         
+            _ -> case n of 
+                    0 -> case ns of 
+                            [] -> Binary c (convertToTrace sd1) sd2
+                            _ -> Binary c (move ns sd1) sd2
+                    1 -> case ns of
+                            [] -> Binary c sd1 (convertToTrace sd2)
+                            _ -> Binary c sd1 (move ns sd2)
+                    _ -> undefined
 move (n:ns) (Unary c sd) = case n of
     0 -> Unary c (move ns sd)
     1 -> undefined
     _ -> undefined
-move (n:ns) (Leaf c s) = Leaf c "t" 
+move (n:ns) (Leaf c s) = Leaf c s
+--move (n:ns) (Binary c sd1 sd2) = case n of
+--    0 -> move ns sd1
+--    1 -> move ns sd2
+--    _ -> undefined
 --move a sd = Binary S (returnLeaf sd a) sd
+
+
+--main = do
+--    print $ replace sd1 [1,1] (Leaf NP "John")
+--    print $ replace sd1 [0] (Leaf NP "Mary")
+--    print $ replace sd1 [0,0] (Leaf NP "Mary")
+--    print $ replace sd1 [0] (Binary NP (Leaf D "the") (Leaf N "cat"))
+--    print $ labeledBrackets (replace sd2 [1,1,0] (Leaf P "without"))
+--    print $ "move"
+--    print $ move [1,1] sd1
+--    print $ move [1,1] sd2
+--    print $ labeledBrackets (move [1,1] sd2)
+--    print $ labeledBrackets (move [1,1,0] sd3)
