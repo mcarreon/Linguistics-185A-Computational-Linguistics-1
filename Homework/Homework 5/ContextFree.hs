@@ -161,12 +161,12 @@ allPaths (Unary c sd) = map (\x -> c : x)(allPaths sd)
 allPaths (Binary c sd1 sd2) = (map (\x -> c : x)(allPaths sd1)) ++ (map (\n -> c : n)(allPaths sd2))
 
 addressesOfNPs :: StrucDesc -> [Address]
-addressesOfNPs = undefined
---addressesOfNPs (Binary c sd1 sd2) = if c == NP then (1 ++ addressesOfNPs sd1) ++ ([1] ++ addressesOfNPs sd2) else (addressesOfNPs sd1) ++ (addressesOfNPs sd2)
---addressesOfNPs (Leaf c s) = 
---addressesOfNPs (Unary c sd) =  
---addressesOfNPs (Binary c sd1 sd2) = 
---addressesOfNPs (Leaf c s) = 
+--addressesOfNPs = undefined
+--addressesOfNPs (Binary c sd1 sd2) = if c == NP then ([[1]] ++ addressesOfNPs sd1) ++ ([[1]] ++ addressesOfNPs sd2) else (addressesOfNPs sd1) ++ (addressesOfNPs sd2)
+--addressesOfNPs (Leaf c s) = if c == NP then [[0]] else []
+addressesOfNPs (Leaf c s) = if c == NP then [[]] else []
+addressesOfNPs (Unary c sd) = if c == NP then [[]] else (map (\x -> 0 : x)(addressesOfNPs sd))
+addressesOfNPs (Binary c sd1 sd2) = if c == NP then ([[]] ++ (map (\x -> 0 : x)(addressesOfNPs sd1) ++ (map (\x -> 1 : x)(addressesOfNPs sd2)))) else (map (\x -> 0 : x)(addressesOfNPs sd1) ++ (map (\x -> 1 : x)(addressesOfNPs sd2)))
 
 ccommand :: Address -> Address -> Bool
 ccommand = undefined
