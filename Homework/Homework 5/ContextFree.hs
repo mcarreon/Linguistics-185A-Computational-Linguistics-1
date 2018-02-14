@@ -160,6 +160,9 @@ allPaths (Leaf c s) = [[c]]
 allPaths (Unary c sd) = map (\x -> c : x)(allPaths sd)
 allPaths (Binary c sd1 sd2) = (map (\x -> c : x)(allPaths sd1)) ++ (map (\n -> c : n)(allPaths sd2))
 
+returnPosition :: StrucDesc -> Address
+returnPosition = undefined
+
 addressesOfNPs :: StrucDesc -> [Address]
 --addressesOfNPs = undefined
 --addressesOfNPs (Binary c sd1 sd2) = if c == NP then ([[1]] ++ addressesOfNPs sd1) ++ ([[1]] ++ addressesOfNPs sd2) else (addressesOfNPs sd1) ++ (addressesOfNPs sd2)
@@ -169,7 +172,16 @@ addressesOfNPs (Unary c sd) = if c == NP then [[]] else (map (\x -> 0 : x)(addre
 addressesOfNPs (Binary c sd1 sd2) = if c == NP then ([[]] ++ (map (\x -> 0 : x)(addressesOfNPs sd1) ++ (map (\x -> 1 : x)(addressesOfNPs sd2)))) else (map (\x -> 0 : x)(addressesOfNPs sd1) ++ (map (\x -> 1 : x)(addressesOfNPs sd2)))
 
 ccommand :: Address -> Address -> Bool
-ccommand = undefined
+ccommand (n:[]) (x:xs) =  case n of
+        0 -> if x == 1 then True else False
+        1 -> if x == 0 then True else False
+        _ -> undefined   
+ccommand (n:ns) (x:xs) = case n of 
+    0 -> if x == 0 && ns /= [] then ccommand ns xs else False
+    1 -> if x == 1  && ns /= [] then ccommand ns xs else False
+ccommand [] (x:xs) = False
+ccommand (n:ns) [] = False
+ccommand [] [] = False
 
 replace :: StrucDesc -> Address -> StrucDesc -> StrucDesc
 replace (Binary c sd1 sd2) (n:ns) newPart = case n of
@@ -195,15 +207,20 @@ returnLeaf (Unary c sd) (n:ns) = case n of
 returnLeaf (Leaf c s) (n:ns) = Leaf c s 
 
 move :: Address -> StrucDesc -> StrucDesc
-move = undefined
---move a sd = Binary S (returnLeaf sd a) sd
+move (n:ns) (Binary c sd1 sd2) = case c of 
+    S -> let sd = Binary c sd1 sd2 in Binary S (returnLeaf (sd) (n:ns)) (move (n:ns) (sd2))
+    _ -> case n of 
+                0 -> Binary c sd1 (move ns sd1)
+                1 -> Binary c sd2 (move ns sd2)
+                _ -> undefined
+
 --move (n:ns) (Binary c sd1 sd2) = case n of
---    0 -> 
+--    0 -> move ns sd1
 --    1 -> move ns sd2
 --    _ -> undefined
---move (n:ns) (Unary c sd) = case n of
---    0 -> move ns sd
---    1 -> undefined
---    _ -> undefined
---move (n:ns) (Leaf c s) = Leaf c "t" 
+move (n:ns) (Unary c sd) = case n of
+    0 -> Unary c (move ns sd)
+    1 -> undefined
+    _ -> undefined
+move (n:ns) (Leaf c s) = Leaf c "t" 
 --move a sd = Binary S (returnLeaf sd a) sd
