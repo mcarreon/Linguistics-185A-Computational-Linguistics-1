@@ -88,16 +88,29 @@ data LengthCat = Long | Short deriving (Eq,Show,Ord)
 type LengthModel = (Map.Map LengthCat Int, Map.Map (LengthCat,String) Int)
 
 freshLengthModel :: LengthModel
-freshLengthModel = undefined
+freshLengthModel = (Map.empty, Map.empty)
 
 addBigramByLength :: (String,String) -> LengthModel -> LengthModel
-addBigramByLength = undefined
+addBigramByLength (x,y) (unigrams, bigrams) = if length (x) > 4 then (addOne Long unigrams, addOne (Long,y) bigrams) else (addOne Short unigrams, addOne (Short,y) bigrams)
+    
 
 bigramProbByLength :: LengthModel -> (String,String) -> Double
-bigramProbByLength = undefined
+bigramProbByLength (unigrams, bigrams) (x,y) = if length (x) > 4 
+    then (
+        let num = Map.findWithDefault 0 (Long,y) bigrams in
+        let denom = Map.findWithDefault 0 Long unigrams in
+        divisionHelper num denom
+    )
+    else (
+        let num = Map.findWithDefault 0 (Short,y) bigrams in
+        let denom = Map.findWithDefault 0 Short unigrams in
+        divisionHelper num denom
+    )
 
 trainTestLength :: [String] -> [String] -> Double
-trainTestLength = undefined
+trainTestLength training test =
+    let model = trainModel addBigramByLength training freshLengthModel in
+    probOfSents (bigramProbByLength model) test
 
 -----------------------------------------------------------------
 -----------------------------------------------------------------
@@ -108,21 +121,71 @@ data VowelCat = Vowel | Cons deriving (Eq,Show,Ord)
 type VowelModel = (Map.Map VowelCat Int, Map.Map (VowelCat,String) Int)
 
 freshVowelModel :: VowelModel
-freshVowelModel = undefined
+freshVowelModel = (Map.empty, Map.empty)
+
+isVowel :: [Char] -> Bool
+isVowel (x:[]) = case x of 
+    'a' -> True
+    --'A' -> True
+    'e' -> True
+    --'E' -> True
+    'i' -> True
+    --'I' -> True
+    'o' -> True
+    --'O' -> True
+    'u' -> True
+    --'U' -> True
+    '-' -> False
+    _ -> False 
+isVowel (x:xs) = case x of 
+    'a' -> True
+    --'A' -> True
+    'e' -> True
+    --'E' -> True
+    'i' -> True
+    --'I' -> True
+    'o' -> True
+    --'O' -> True
+    'u' -> True
+    --'U' -> True
+    '-' -> False
+    _ -> False 
+
+isVowel [] = False
+
 
 addBigramByVowel :: (String,String) -> VowelModel -> VowelModel
-addBigramByVowel = undefined
+addBigramByVowel (x,y) (unigrams, bigrams) = if isVowel(x) == True then (addOne Vowel unigrams, addOne (Vowel,y) bigrams) else (addOne Cons unigrams, addOne (Cons,y) bigrams)
 
 bigramProbByVowel :: VowelModel -> (String,String) -> Double
-bigramProbByVowel = undefined
+bigramProbByVowel (unigrams, bigrams) (x,y) = if isVowel(x) == True 
+    then (
+        let num = Map.findWithDefault 0 (Vowel,y) bigrams in
+        let denom = Map.findWithDefault 0 Vowel unigrams in
+        divisionHelper num denom
+    )
+    else (
+        let num = Map.findWithDefault 0 (Cons,y) bigrams in
+        let denom = Map.findWithDefault 0 Cons unigrams in
+        divisionHelper num denom
+    )
 
 trainTestVowel :: [String] -> [String] -> Double
-trainTestVowel = undefined
+trainTestVowel training test =
+    let model = trainModel addBigramByVowel training freshVowelModel in
+    probOfSents (bigramProbByVowel model) test
 
 -----------------------------------------------------------------
 -----------------------------------------------------------------
 -- The interpolated model
 
 trainTestInterpolated :: Double -> [String] -> [String] -> Double
-trainTestInterpolated = undefined
+trainTestInterpolated x training test = let n = (let model = trainModel addBigramByLength training freshLengthModel in (probOfSents (bigramProbByLength model) test)) in 
+    let m = (let model = trainModel addBigramByVowel training freshVowelModel in (probOfSents (bigramProbByVowel model) test)) in
+   ((n + m) / 2)
+     
 
+      
+    
+    
+    
