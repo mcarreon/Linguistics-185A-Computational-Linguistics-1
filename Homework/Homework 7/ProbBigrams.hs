@@ -179,11 +179,18 @@ trainTestVowel training test =
 -----------------------------------------------------------------
 -- The interpolated model
 
+bigramProbByInterpolated :: Double -> LengthModel -> VowelModel -> (String,String) -> Double
+bigramProbByInterpolated n lengthModel vowelModel (x,y) = ((bigramProbByLength lengthModel (x,y)) * n) + ((bigramProbByVowel vowelModel (x,y)) * (1 - n))
+
 trainTestInterpolated :: Double -> [String] -> [String] -> Double
-trainTestInterpolated x training test = let n = (let model = trainModel addBigramByLength training freshLengthModel in (probOfSents (bigramProbByLength model) test)) in 
-    let m = (let model = trainModel addBigramByVowel training freshVowelModel in (probOfSents (bigramProbByVowel model) test)) in
-   ((n + m) / 2)
-     
+trainTestInterpolated x training test = let lengthModel = trainModel addBigramByLength training freshLengthModel in 
+    let vowelModel = trainModel addBigramByVowel training freshVowelModel in 
+      probOfSents (bigramProbByInterpolated x lengthModel vowelModel) test
+
+   
+--trainTestInterpolated x training test = let n = (let model = trainModel addBigramByLength training freshLengthModel in (probOfSents (bigramProbByLength model) test)) in 
+--    let m = (let model = trainModel addBigramByVowel training freshVowelModel in (probOfSents (bigramProbByVowel model) test)) in
+--   ()
 
       
     
