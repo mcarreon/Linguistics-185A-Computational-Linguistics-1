@@ -25,7 +25,9 @@ predecessors = undefined
 --
 --
 
+---------------Context-free parsing schemas-----------------
+-- x -> w
+-- x -> y1.....yn
 
-
-
-
+type Config = ([Cat], [String])
+			--(State, [String])

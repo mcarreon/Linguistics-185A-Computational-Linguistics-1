@@ -186,13 +186,16 @@ probToProb1 p = if p > 0 then [p] else []
 probToEmProb :: Double -> [Double]
 probToEmProb p = [p] 
 
+test :: (ProbCFG -> Cat -> String -> Double) -> [Double]
+test = undefined
+
 probsBundleFSA :: BundleForFSA [Double]
 probsBundleFSA = 
-    let probToProb p = if product p > 0 then p else p in
-    (   \g -> \st -> probToProb ([FSA.endProb g st,33]), 
-        \g -> \st1 -> \st2 -> probToProb ([FSA.trProb g st1 st2,22]), 
-        \g -> \(st1,st2) -> \w -> probToProb ([FSA.emProb g (st1,st2) w,11]), 
-        concat, 
+    let probToProb p = if sum p > 0 then p else [] in
+    (   \g -> \st -> probToProb ([FSA.endProb g st] ), 
+        \g -> \st1 -> \st2 -> probToProb ([FSA.trProb g st1 st2]), 
+        \g -> \(st1,st2) -> \w -> probToProb ([FSA.emProb g (st1,st2) w]), 
+        foldr1 productList, 
         concat
     )
 
@@ -204,14 +207,24 @@ probsBundleCFG = undefined
 --        foldr1 productList, 
 --    )
 
+derivCFG :: Double -> Bool
+derivCFG p = if p > 0 then True else False
+
+concatDeriv :: [[GrammarRule]] -> [[GrammarRule]] -> [[GrammarRule]]
+concatDeriv = undefined 
+--concatDeriv [] [] = [[]]
+--concatDeriv [x] [] = [x]
+--concatDeriv [] [y] = [y]
+--concatDeriv [x] [y] = [x ++ y]
+
 derivationBundleCFG :: BundleForCFG [[GrammarRule]]
-derivationBundleCFG = undefined
---derivationBundleCFG = 
---    (   \g -> \cat -> \w -> End cat w, 
---        \g -> \cat -> \(cat1, cat2) -> Step cat (cat1, cat2),
---        concat,
---        concat 
---    )
+--derivationBundleCFG = undefined
+derivationBundleCFG = 
+    (   \g -> \cat -> \w -> if derivCFG (CFG.endProb g cat w) == True then [[End cat w]] else [],
+        \g -> \cat -> \(cat1, cat2) -> if derivCFG (CFG.trProb g cat (cat1,cat2)) == True then [[Step cat (cat1,cat2)]] else [],
+        foldr1 concatDeriv,
+        concat 
+    )
 
 probDerivBundleCFG :: BundleForCFG [(Double,[GrammarRule])]
 probDerivBundleCFG = undefined
@@ -221,13 +234,58 @@ countVPsBundleCFG = undefined
 
 ------------------------------------------------------------------------------------
 
+
+
 convert :: [GrammarRule] -> GrammarRule 
 convert (x:[]) = x
 
-leftmostCheck :: [GrammarRule] -> Bool
-leftmostCheck [] = False
+{-
+
+takeHelp :: [GrammarRule] -> Int 
+takeHelp [] = 0
+takeHelp (r:[]) = 0
+takeHelp (r:rn) = case r of 
+    End fn fs -> let y = convert (take 1 rn) in
+        case y of
+            End zn zs -> 2
+            Step zn (zx,zy) -> takeHelp rn
+    Step fn fs -> 1 + takeHelp rn 
+
+-}
+
+leftmostCheckStack :: [GrammarRule] -> [Cat] -> Bool
+leftmostCheckStack [] [] = True
+leftmostCheckStack (g:gs) a = case a of 
+    [] -> case g of 
+        Step fn (fx, fy) -> leftmostCheckStack gs [fx, fy] 
+        _ -> False
+    _ -> case g of
+        Step fn (fx, fy) -> if fn == head a then leftmostCheckStack gs ([fx, fy] ++ drop 1 a) else False
+        End fn fs -> if fn == head a then leftmostCheckStack gs (drop 1 a) else False
+
+leftmostCheck :: [GrammarRule] -> Bool 
+leftmostCheck g = (leftmostCheckStack g [])
+
+{-leftmostCheck [] = False
 leftmostCheck (r:[]) = True 
 leftmostCheck (r:rn) = case r of 
+    Step fn (fx, fy) -> let x = convert (take 1 rn) in  
+        case x of 
+            Step xn (xx, xy) -> if xn == fx 
+                then let y = convert (take 1 (drop ((takeHelp rn) + 1) rn)) in case y of 
+                    Step yn (yx, yy) -> if yn == fy then leftmostCheck rn else False
+                    End yn ys -> if yn == fy then leftmostCheck rn else False
+                else False
+            End xn xs -> if xn == fx 
+                then let y = convert (take 1 (drop 1 rn)) in case y of
+                    Step yn (yx, yy) -> if yn == fy then leftmostCheck rn else False
+                    End yn ys -> if yn == fy then leftmostCheck rn else False
+                else False 
+    End fn fs -> leftmostCheck rn
+-}
+
+
+{-leftmostCheck (r:rn) = case r of 
     Step fn (fx, fy) -> let x = convert (take 1 rn) in let y = convert (take 1 (drop 1 rn)) in 
         case x of 
             Step xn (xx, xy) -> if xn == fx 
@@ -239,20 +297,43 @@ leftmostCheck (r:rn) = case r of
                 then case y of
                     Step yn (yx, yy) -> if yn == fy then leftmostCheck rn else False
                     End yn ys -> if yn == fy then leftmostCheck rn else False
-                 else False 
+                else False 
     End fn fs -> leftmostCheck rn
-
+-}
 data Result = No | Yes StrucDesc deriving Show
 
-convert2 :: [GrammarRule] -> StrucDesc
-convert2 ((End cat s):[]) = Leaf cat s
-convert2 (r:rs) = case r of 
-    Step n (x, y) -> Binary n (convert2 (take 1 rs)) (convert2 (drop 1 rs))
-    End n s -> Leaf n s  
+
+insideStruc :: [GrammarRule] -> Int
+insideStruc [] = 0
+insideStruc (r:[]) = 0
+insideStruc (r:rn) = case r of 
+    End fn fs -> let y = convert (take 1 rn) in
+        case y of
+            End zn zs -> 2
+            Step zn (zx,zy) -> insideStruc rn
+    Step fn fs -> 1 + insideStruc rn 
+
+
+--gramToStrucStack :: [GrammarRule] -> [StrucDesc] -> StrucDesc 
+--gramToStrucStack [] a = Leaf VP "saw"
+--gramToStrucStack (g:gs) a = case g of 
+--    Step n (x, y) -> gramToStrucStack gs (a ++ [Binary n (x, y)])
+ --   End n s -> gramToStrucStack gs (a ++ [Leaf n s])
+
+
+
+
+gramToStruc :: [GrammarRule] -> StrucDesc
+gramToStruc ((End cat s):[]) = Leaf cat s
+gramToStruc (r:rs) = case r of 
+    Step n (x, y) -> let next = convert (take 1 rs) in case 
+        next of 
+            Step fn (fx, fy) -> Binary n (gramToStruc (take (insideStruc rs) rs)) (gramToStruc (drop (insideStruc rs) rs))
+            End n s -> Binary n (gramToStruc rs) (gramToStruc (drop 1 rs)) 
+    End n s -> Leaf n s
 
 
 leftmostToSD :: [GrammarRule] -> Result
 leftmostToSD g = if leftmostCheck g == False 
     then No 
-    else Yes (convert2 g) 
-
+    else Yes (gramToStruc g) 
