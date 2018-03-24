@@ -128,6 +128,13 @@ viterbiProbForward pfsa output st = if output == [] then
         let (ws,w) = (init output, last output) in
         maximum (map (\prev -> viterbiProbForward pfsa ws prev * trProb pfsa prev st * emProb pfsa (prev,st) w) (allStates pfsa))
 
+viterbiProbb :: ProbFSA -> [String] -> State -> [Double]
+viterbiProbb pfsa output st = if output == [] then
+        [startProb pfsa st]
+    else
+        let (ws,w) = (init output, last output) in
+        concat (map (\prev -> [product [viterbiProbb pfsa ws prev] ++ [product [trProb pfsa prev st] ++ [emProb pfsa (prev,st) w]]]) (allStates pfsa))
+
 helper :: [(a, Double)] -> (a, Double)
 helper [] = (undefined, -1)
 helper (x:xs) = if snd x > snd (helper xs) then x else helper xs 

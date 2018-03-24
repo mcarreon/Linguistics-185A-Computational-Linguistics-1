@@ -178,7 +178,13 @@ countBundleCFG =
     )
 
 productList :: [Double] -> [Double] -> [Double]
-productList x y = [product (x ++ y)] 
+productList x y = if sum x == 0 
+    then if sum y == 0
+        then [] 
+        else y
+    else if sum y == 0
+        then x
+        else [product (x ++ y)] 
 
 probToProb1 :: Double -> [Double]
 probToProb1 p = if p > 0 then [p] else []
@@ -186,18 +192,47 @@ probToProb1 p = if p > 0 then [p] else []
 probToEmProb :: Double -> [Double]
 probToEmProb p = [p] 
 
-test :: (ProbCFG -> Cat -> String -> Double) -> [Double]
-test = undefined
+--help1 :: ProbFSA -> State -> [Double]
+--help1 g st = [product [if FSA.trProb g st next * FSA.endProb g st > 0 then FSA.endProb g st else 0 | next <- FSA.allStates g]]
+
+--Works For last test case with
+help2 :: ProbFSA -> (State,State) -> String -> [Double]
+help2 g (st1,st2) w = if FSA.endProb g st2 > 0 
+    then if FSA.emProb g (st1,st2) w >= 0 
+        then [FSA.emProb g (st1,st2) w * FSA.trProb g st1 st2 * FSA.endProb g st2]
+        else []
+    else if FSA.emProb g (st1,st2) w > 0
+        then [FSA.emProb g (st1,st2) w * FSA.trProb g st1 st2]
+        else []
 
 probsBundleFSA :: BundleForFSA [Double]
 probsBundleFSA = 
-    let probToProb p = if sum p > 0 then p else [] in
-    (   \g -> \st -> probToProb ([FSA.endProb g st] ), 
-        \g -> \st1 -> \st2 -> probToProb ([FSA.trProb g st1 st2]), 
-        \g -> \(st1,st2) -> \w -> probToProb ([FSA.emProb g (st1,st2) w]), 
+    let probBun p = if sum p == 0 then [] else p in
+    (   \g -> \st -> [],
+        \g -> \st1 -> \st2 -> [], 
+        \g -> \(st1,st2) -> \w -> help2 g (st1,st2) w, 
         foldr1 productList, 
         concat
     )
+
+
+productCondense :: [Double] -> [Double] -> [Double]
+productCondense x y = x ++ y
+
+productCreate :: [Double] -> [Double] -> [Double]
+productCreate x y = [product x] ++ [product y]
+
+{-
+probsBundleFSA :: BundleForFSA [Double]
+probsBundleFSA = 
+    let prob p = if product p > 0 then p else [] in
+    (   \g -> \st -> prob ([FSA.endProb g st]),
+        \g -> \st1 -> \st2 -> prob ([FSA.trProb g st1 st2]), 
+        \g -> \(st1,st2) -> \w -> prob ([FSA.emProb g (st1,st2) w]), 
+        foldr1 productCondense, 
+        foldr1 productCreate
+    )
+-}
 
 probsBundleCFG :: BundleForCFG [Double]
 probsBundleCFG = undefined
@@ -222,15 +257,28 @@ derivationBundleCFG :: BundleForCFG [[GrammarRule]]
 derivationBundleCFG = 
     (   \g -> \cat -> \w -> if derivCFG (CFG.endProb g cat w) == True then [[End cat w]] else [],
         \g -> \cat -> \(cat1, cat2) -> if derivCFG (CFG.trProb g cat (cat1,cat2)) == True then [[Step cat (cat1,cat2)]] else [],
-        foldr1 concatDeriv,
+        concat,
         concat 
     )
 
 probDerivBundleCFG :: BundleForCFG [(Double,[GrammarRule])]
 probDerivBundleCFG = undefined
 
+countPlus :: [Int] -> [Int] -> [Int]
+countPlus x y = [sum (x ++ y)]
+
 countVPsBundleCFG :: BundleForCFG [Int]
-countVPsBundleCFG = undefined
+countVPsBundleCFG = 
+    (   \g -> \cat -> \w -> if CFG.endProb g cat w == 0  
+            then []
+            else if cat == VP then [1] else [] ,
+        \g -> \cat -> \(cat1, cat2) -> if CFG.trProb g cat (cat1,cat2) == 0 
+            then [] 
+            else if cat == VP then [1] else [] ,
+        foldr1 countPlus,
+        concat 
+    )
+
 
 ------------------------------------------------------------------------------------
 
@@ -300,6 +348,7 @@ leftmostCheck (r:rn) = case r of
                 else False 
     End fn fs -> leftmostCheck rn
 -}
+
 data Result = No | Yes StrucDesc deriving Show
 
 
@@ -320,18 +369,14 @@ insideStruc (r:rn) = case r of
 --    Step n (x, y) -> gramToStrucStack gs (a ++ [Binary n (x, y)])
  --   End n s -> gramToStrucStack gs (a ++ [Leaf n s])
 
-
-
-
 gramToStruc :: [GrammarRule] -> StrucDesc
 gramToStruc ((End cat s):[]) = Leaf cat s
 gramToStruc (r:rs) = case r of 
     Step n (x, y) -> let next = convert (take 1 rs) in case 
         next of 
             Step fn (fx, fy) -> Binary n (gramToStruc (take (insideStruc rs) rs)) (gramToStruc (drop (insideStruc rs) rs))
-            End n s -> Binary n (gramToStruc rs) (gramToStruc (drop 1 rs)) 
+            End fn fs -> Binary n (gramToStruc rs) (gramToStruc (drop 1 rs)) 
     End n s -> Leaf n s
-
 
 leftmostToSD :: [GrammarRule] -> Result
 leftmostToSD g = if leftmostCheck g == False 
